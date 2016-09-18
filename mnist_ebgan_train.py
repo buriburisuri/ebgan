@@ -11,7 +11,7 @@ tf.sg_verbosity(10)
 
 batch_size = 32
 z_dim = 50
-margin = 10
+margin = 1
 
 #
 # inputs
@@ -53,20 +53,23 @@ with tf.sg_context(name='generator', size=4, stride=2, act='relu', bn=True):
 # create real + fake image input
 xx = tf.concat(0, [x, gen])
 
-with tf.sg_context(name='discriminator', size=4, stride=2, act='leaky_relu', bn=True):
+with tf.sg_context(name='discriminator', size=4, stride=2, act='leaky_relu'):
     disc = (xx.sg_conv(dim=64)
             .sg_conv(dim=128)
             .sg_upconv(dim=64)
-            .sg_upconv(dim=1, act='sigmoid', bn=False))
+            .sg_upconv(dim=1, act='linear'))
 
 
 #
 # loss & train ops
 #
 
-mse = tf.square(disc - xx)  # squared error
-loss_disc = mse[:batch_size, :, :, :] + tf.maximum(margin - mse[batch_size:, :, :, :], 0)   # discriminator loss
-loss_gen = mse[batch_size:, :, :, :]  # generator loss
+# squared errors
+mse = tf.square(disc - xx)
+mse_real, mse_fake = mse[:batch_size, :, :, :], mse[batch_size:, :, :, :]
+
+loss_disc = mse_real + tf.maximum(margin - mse_fake, 0)   # discriminator loss
+loss_gen = mse_fake  # generator loss
 
 train_disc = tf.sg_optim(loss_disc, lr=0.001, category='discriminator')  # discriminator train ops
 train_gen = tf.sg_optim(loss_gen, lr=0.001, category='generator')  # generator train ops
@@ -93,5 +96,5 @@ def alt_train(sess, opt):
     return np.mean(l_disc) + np.mean(l_gen)
 
 # do training
-alt_train(log_interval=10, ep_max=100, ep_size=data.train.num_batch, early_stop=False)
+alt_train(log_interval=10, ep_max=30, ep_size=data.train.num_batch, early_stop=False)
 

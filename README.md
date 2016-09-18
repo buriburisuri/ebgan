@@ -1,6 +1,9 @@
 # EBGAN
 A tensorflow implementation of Junbo et al's Energy-based generative adversarial network ( EBGAN ) paper. 
 ( See : [https://arxiv.org/pdf/1609.03126v2.pdf](https://arxiv.org/pdf/1609.03126v2.pdf) )
+My implementation is somewhat different from original papers, for example I've used convolution layers
+in both generator and discriminator instead of fully connected layers.
+I think this isn't important and will not make a big difference in final result.
 
 ## Dependencies
 

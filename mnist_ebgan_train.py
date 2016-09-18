@@ -9,9 +9,10 @@ tf.sg_verbosity(10)
 # hyper parameters
 #
 
-batch_size = 32
-z_dim = 50
-margin = 1
+batch_size = 32   # batch size
+z_dim = 50        # noise dimension
+margin = 1        # max-margin for hinge loss
+pt_weight = 0.1  # PT regularizer's weight
 
 #
 # inputs
@@ -22,12 +23,6 @@ data = tf.sg_data.Mnist(batch_size=batch_size)
 
 # input images
 x = data.train.image
-
-# generator labels ( all ones )
-y = tf.ones(batch_size, dtype=tf.sg_floatx)
-
-# discriminator labels ( half 1s, half 0s )
-y_disc = tf.concat(0, [y, y * 0])
 
 #
 # create generator
@@ -45,7 +40,6 @@ with tf.sg_context(name='generator', size=4, stride=2, act='relu', bn=True):
            .sg_upconv(dim=64)
            .sg_upconv(dim=1, act='sigmoid', bn=False))
 
-
 #
 # create discriminator
 #
@@ -59,17 +53,27 @@ with tf.sg_context(name='discriminator', size=4, stride=2, act='leaky_relu'):
             .sg_upconv(dim=64)
             .sg_upconv(dim=1, act='linear'))
 
+#
+# pull-away term ( PT ) regularizer
+#
+
+sample = gen.sg_flatten()
+nom = tf.matmul(sample, tf.transpose(sample, perm=[1, 0]))
+denom = tf.reduce_sum(tf.square(sample), reduction_indices=[1], keep_dims=True)
+pt = tf.square(nom/denom)
+pt -= tf.diag(tf.diag_part(pt))
+pt = tf.reduce_sum(pt) / (batch_size * (batch_size - 1))
 
 #
 # loss & train ops
 #
 
-# squared errors
-mse = tf.square(disc - xx)
-mse_real, mse_fake = mse[:batch_size, :, :, :], mse[batch_size:, :, :, :]
+# mean squared errors
+mse = tf.reduce_mean(tf.square(disc - xx), reduction_indices=[1, 2, 3])
+mse_real, mse_fake = mse[:batch_size], mse[batch_size:]
 
 loss_disc = mse_real + tf.maximum(margin - mse_fake, 0)   # discriminator loss
-loss_gen = mse_fake  # generator loss
+loss_gen = mse_fake + pt * pt_weight   # generator loss + PT regularizer
 
 train_disc = tf.sg_optim(loss_disc, lr=0.001, category='discriminator')  # discriminator train ops
 train_gen = tf.sg_optim(loss_gen, lr=0.001, category='generator')  # generator train ops

@@ -1,6 +1,12 @@
-# -*- coding: utf-8 -*-
 import sugartensor as tf
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from model import *
+
+
+__author__ = 'namju.kim@kakaobrain.com'
+
 
 # set log level to debug
 tf.sg_verbosity(10)
@@ -10,38 +16,27 @@ tf.sg_verbosity(10)
 #
 
 batch_size = 100
-z_dim = 50
 
-
-#
-# create generator
-#
 
 # random uniform seed
 z = tf.random_uniform((batch_size, z_dim))
 
-with tf.sg_context(name='generator', size=4, stride=2, act='relu', bn=True):
-    # generator network
-    gen = (z.sg_dense(dim=1024)
-           .sg_dense(dim=7*7*128)
-           .sg_reshape(shape=(-1, 7, 7, 128))
-           .sg_upconv(dim=64)
-           .sg_upconv(dim=1, act='sigmoid', bn=False)
-           .sg_squeeze())
-
+# generator
+gen = generator(z)
 
 #
 # draw samples
 #
 
 with tf.Session() as sess:
+
     tf.sg_init(sess)
+
     # restore parameters
-    saver = tf.train.Saver()
-    saver.restore(sess, tf.train.latest_checkpoint('asset/train/ckpt'))
+    tf.sg_restore(sess, tf.train.latest_checkpoint('asset/train'), category='generator')
 
     # run generator
-    imgs = sess.run(gen)
+    imgs = sess.run(gen.sg_squeeze())
 
     # plot result
     _, ax = plt.subplots(10, 10, sharex=True, sharey=True)
